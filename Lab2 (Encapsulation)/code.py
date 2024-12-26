@@ -253,9 +253,9 @@ def create_instance():
     student_list.append(Student('66010009', "Zoe Juarez"))
     student_list.append(Student('66010010', "Sebastien Golden"))
 
-    subject_list.append(Subject('CS101', "Computer Programming 1", 3))
+    subject_list.append(Subject('CS101', "Computer Programming 1", 1))
     subject_list.append(Subject('CS102', "Computer Programming 2", 3))
-    subject_list.append(Subject('CS103', "Data Structure", 2))
+    subject_list.append(Subject('CS103', "Data Structure", 3))
 
     teacher_list.append(Teacher('T001', "Mr. Welsh"))
     teacher_list.append(Teacher('T002', "Mr. Burton"))
