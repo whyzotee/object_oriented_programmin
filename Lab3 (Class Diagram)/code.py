@@ -1,42 +1,101 @@
 class User:
     def __init__(self, citizen_id: str, name: str):
+        # print("Init User", citizen_id, name)
         pass
 
 class Account:
     def __init__(self, account_number: str, owner: User):
+        # print("Init Account", account_number, owner)
+        pass
+
+    def get_account(self):
         pass
 
 class ATMCard:
-    def __init__(self, card_number: str, account: Account, pin: str):
+    def __init__(self, card_number: str, balance:int, account: Account, pin: str):
+        self.__account = account
+        # print("Init ATMCard", card_number, account, pin)
         pass
+
+    def get_account(self):
+        return self.__account
 
 class ATMMachine:
     def __init__(self, machine_id: str, initial_amount: float = 1000000):
-        pass# Class Code
+        self.__id = machine_id
+        self.__amount = initial_amount
 
-    def insert_card(atm_card: ATMCard):
-        pass
+    def insert_card(self, bank, atm_card: ATMCard):
+        return bank.find_account_from_card(atm_card)
+
+    def get_id(self):
+        return self.__id
+
+    def get_amount(self):
+        return self.__amount
+
+class Bank:
+    g_atm_machine:list[ATMMachine] = []
+    g_atm_card:list[ATMCard] = []
+
+    def __init__(self, name: str, init_user_data:dict, init_atm_machine:dict):
+        self.__name = name
+        self.__user = []
+        self.__account = []
+
+        self.initialize(init_user_data, init_atm_machine)
+
+    def initialize(self, user_data, atm_machine):
+        for id in user_data:
+            self.__user.append(User(id, user_data[id][0]))
+            self.__account.append(Account(user_data[id][1], self.__user[0]))
+            Bank.g_atm_card.append(ATMCard(user_data[id][2], user_data[id][3], self.__account[0], "1234"))
+        
+        for id in atm_machine:
+            Bank.g_atm_machine.append(ATMMachine(id, atm_machine[id]))
+
+    def get_name(self):
+        return self.__name
+
+    def set_name(self, new_name):
+        self.__name = new_name
+
+    def find_account_from_card(self, insert_card):
+        for card in Bank.g_atm_card:
+            if insert_card == card:
+                return card.get_account()
+        return None
+    
+    name = property(get_name, set_name)
+
+class Transaction:
+    def __init__(self, type: str, amount:int, machine:ATMMachine, account:Account=None):
+        self.__type:str = type
+        self.__amount:int = amount
+        self.__machine:ATMMachine = machine
+        self.__account:Account = account
 
 ##################################################################################
 
-# กำหนดรูปแบบของ user ดังนี้ {รหัสประชาชน : [ชื่อ, หมายเลขบัญชี, หมายเลข ATM, จำนวนเงิน]}
-user ={'1-1101-12345-12-0':['Harry Potter','1234567890','12345',20000],
-       '1-1101-12345-13-0':['Hermione Jean Granger','0987654321','12346',1000]}
+#     {     รหัสประชาชน    :[ชื่อ,            หมายเลขบัญชี, หมายเลข ATM, จำนวนเงิน]}
+user = {'1-1101-12345-12-0':['Harry Potter', '1234567890', '12345', 20000],
+       '1-1101-12345-13-0':['Hermione Jean Granger', '0987654321', '12346', 1000]}
 
-atm ={'1001':1000000,'1002':200000}
+atm = {'1001':1000000,'1002':200000}
 
 # TODO 1 : จากข้อมูลใน user ให้สร้าง instance โดยมีข้อมูล
 # TODO :   key:value โดย key เป็นรหัสบัตรประชาชน และ value เป็นข้อมูลของคนนั้น ประกอบด้วย
 # TODO :   [ชื่อ, หมายเลขบัญชี, หมายเลขบัตร ATM, จำนวนเงินในบัญชี]
 # TODO :   return เป็น instance ของธนาคาร
 # TODO :   และสร้าง instance ของเครื่อง ATM จำนวน 2 เครื่อง
-
+lnwza_bank = Bank(name="LnwZaBank", init_user_data=user, init_atm_machine=atm)
+print(lnwza_bank.name)
 
 # TODO 2 : เขียน method ที่ทำหน้าที่สอดบัตรเข้าเครื่อง ATM มี parameter 2 ตัว ได้แก่ 1) instance ของธนาคาร
 # TODO     2) atm_card เป็นหมายเลขของ atm_card
 # TODO     return ถ้าบัตรถูกต้องจะได้ instance ของ account คืนมา ถ้าไม่ถูกต้องได้เป็น None
 # TODO     ควรเป็น method ของเครื่อง ATM
-
+print(Bank.g_atm_machine[0].insert_card(lnwza_bank, Bank.g_atm_card[0]))
 
 # TODO 3 : เขียน method ที่ทำหน้าที่ฝากเงิน โดยรับ parameter 3 ตัว คือ 1) instance ของเครื่อง atm
 # TODO     2) instance ของ account 3) จำนวนเงิน
