@@ -1,22 +1,72 @@
 class User:
     def __init__(self, citizen_id: str, name: str):
-        # print("Init User", citizen_id, name)
-        pass
+        self.__id = citizen_id
+        self.__name = name
+        self.__account = []
+        self.__atm_card = []
+    
+    def get_account(self):
+        return self.__account
+
+    def add_account(self, account):
+        self.__account.append(account)
+
+    def get_atm_card(self):
+        return self.__atm_card
+    
+    def add_atm_card(self, atm_card):
+        self.__atm_card.append(atm_card)
 
 class Account:
-    def __init__(self, account_number: str, owner: User):
-        # print("Init Account", account_number, owner)
-        pass
+    def __init__(self, account_number: str, owner: User, init_balance):
+        self.__number = account_number
+        self.__owner = owner
+        self.__balance = init_balance
+        self.__atm_card = None
+        self.__transaction = []
 
-    def get_account(self):
-        pass
+    def get_number(self):
+        return self.__number
+    
+    def set_number(self, account_number):
+        self.__number = account_number
+    
+    def get_owner(self):
+        return self.__owner
+    
+    def set_owner(self, owner):
+        self.__owner = owner
+    
+    def get_atm_card(self):
+        return self.__atm_card
+
+    def set_atm_card(self, atm_card):
+        self.__atm_card = atm_card
+
+    def get_balance(self):
+        return self.__balance
+    
+    def add_balance(self, amount):
+        self.__balance += amount
+    
+
+    def add_transaction(self, transaction):
+        self.__transaction.append(transaction)
+    
+    number = property(get_number, set_number)
+    owner = property(get_owner, set_owner)
 
 class ATMCard:
-    def __init__(self, card_number: str, balance:int, account: Account, pin: str):
+    def __init__(self, card_number: str, account: Account, pin: str):
+        self.__number = card_number
         self.__account = account
+        self.__pin = pin
         # print("Init ATMCard", card_number, account, pin)
         pass
-
+    
+    def get_number(self):
+        return self.__number
+    
     def get_account(self):
         return self.__account
 
@@ -25,34 +75,32 @@ class ATMMachine:
         self.__id = machine_id
         self.__amount = initial_amount
 
-    def insert_card(self, bank, atm_card: ATMCard):
-        return bank.find_account_from_card(atm_card)
-
     def get_id(self):
         return self.__id
 
     def get_amount(self):
         return self.__amount
+    
+    def set_amount(self, amount):
+        self.__amount = amount
+    
+    def add_amount(self, amount):
+        self.__amount += amount
+    
+    def insert_card(self, bank, atm_card):
+        for user in bank.get_user():
+            for account in user.get_account():
+                if account.get_atm_card() == atm_card:
+                    return account
+        return None
+    
+    amount = property(get_amount, set_amount)
 
 class Bank:
-    g_atm_machine:list[ATMMachine] = []
-    g_atm_card:list[ATMCard] = []
-
-    def __init__(self, name: str, init_user_data:dict, init_atm_machine:dict):
+    def __init__(self, name: str):
         self.__name = name
-        self.__user = []
-        self.__account = []
-
-        self.initialize(init_user_data, init_atm_machine)
-
-    def initialize(self, user_data, atm_machine):
-        for id in user_data:
-            self.__user.append(User(id, user_data[id][0]))
-            self.__account.append(Account(user_data[id][1], self.__user[0]))
-            Bank.g_atm_card.append(ATMCard(user_data[id][2], user_data[id][3], self.__account[0], "1234"))
-        
-        for id in atm_machine:
-            Bank.g_atm_machine.append(ATMMachine(id, atm_machine[id]))
+        self.__users = []
+        self.__atm_machine = []
 
     def get_name(self):
         return self.__name
@@ -60,20 +108,43 @@ class Bank:
     def set_name(self, new_name):
         self.__name = new_name
 
-    def find_account_from_card(self, insert_card):
-        for card in Bank.g_atm_card:
-            if insert_card == card:
-                return card.get_account()
-        return None
+    def get_user(self):
+        return self.__users
     
+    def set_users(self, users):
+        self.__users = users
+    
+    def add_user(self, user):
+        self.__users.append(user)
+    
+    def get_atm_machine(self):
+        return self.__atm_machine
+    
+    def set_atm_machine(self, atm_machine):
+        self.__atm_machine = atm_machine
+    
+    def add_atm_machine(self, atm_machine):
+        self.__atm_machine.append(atm_machine)
+    
+    def deposit(self, atm:ATMMachine, account:Account, amount):
+        if amount <= 0 :
+            return "Error"
+
+        atm.add_amount(amount)
+        
+        account.add_transaction(Transaction("D", amount, atm))
+        account.add_balance(amount)
+
+        print(account.get_balance())
+
+        return "Success"
+
     name = property(get_name, set_name)
 
 class Transaction:
-    def __init__(self, type: str, amount:int, machine:ATMMachine, account:Account=None):
+    def __init__(self, type: str, amount:int, machine:ATMMachine):
         self.__type:str = type
         self.__amount:int = amount
-        self.__machine:ATMMachine = machine
-        self.__account:Account = account
 
 ##################################################################################
 
@@ -83,26 +154,59 @@ user = {'1-1101-12345-12-0':['Harry Potter', '1234567890', '12345', 20000],
 
 atm = {'1001':1000000,'1002':200000}
 
+all_users:list[User] = []
+all_account:list[Account] = []
+all_atm_card:list[ATMCard] = []
+all_atm_machine:list[ATMMachine] = []
+
+def initialize():
+    for id in user:
+        inst_user = User(id, user[id][0])
+        inst_account = Account(user[id][1], inst_user, user[id][3])
+        inst_atm_card = ATMCard(user[id][2], inst_account, "1234")
+
+        inst_user.add_account(inst_account)
+        inst_user.add_atm_card(inst_atm_card)
+
+        inst_account.set_atm_card(inst_atm_card)
+
+        all_users.append(inst_user)
+        all_account.append(inst_account)
+        all_atm_card.append(inst_atm_card)
+        
+    for id in atm:
+        all_atm_machine.append(ATMMachine(id, atm[id]))
+
+initialize()
 # TODO 1 : จากข้อมูลใน user ให้สร้าง instance โดยมีข้อมูล
 # TODO :   key:value โดย key เป็นรหัสบัตรประชาชน และ value เป็นข้อมูลของคนนั้น ประกอบด้วย
 # TODO :   [ชื่อ, หมายเลขบัญชี, หมายเลขบัตร ATM, จำนวนเงินในบัญชี]
 # TODO :   return เป็น instance ของธนาคาร
 # TODO :   และสร้าง instance ของเครื่อง ATM จำนวน 2 เครื่อง
-lnwza_bank = Bank(name="LnwZaBank", init_user_data=user, init_atm_machine=atm)
-print(lnwza_bank.name)
+lnwza_bank = Bank(name="LnwZaBank")
+lnwza_bank.set_users(all_users)
+lnwza_bank.set_atm_machine(all_atm_machine)
+
+print("TODO 1", lnwza_bank.name)
+print("TODO 1", [i.get_id() for i in all_atm_machine])
+print()
 
 # TODO 2 : เขียน method ที่ทำหน้าที่สอดบัตรเข้าเครื่อง ATM มี parameter 2 ตัว ได้แก่ 1) instance ของธนาคาร
 # TODO     2) atm_card เป็นหมายเลขของ atm_card
 # TODO     return ถ้าบัตรถูกต้องจะได้ instance ของ account คืนมา ถ้าไม่ถูกต้องได้เป็น None
 # TODO     ควรเป็น method ของเครื่อง ATM
-print(Bank.g_atm_machine[0].insert_card(lnwza_bank, Bank.g_atm_card[0]))
+insert_card = all_atm_machine[0].insert_card(lnwza_bank, all_atm_card[0])
+print("TODO 2", insert_card)
+print()
 
 # TODO 3 : เขียน method ที่ทำหน้าที่ฝากเงิน โดยรับ parameter 3 ตัว คือ 1) instance ของเครื่อง atm
 # TODO     2) instance ของ account 3) จำนวนเงิน
 # TODO     การทำงาน ให้เพิ่มจำนวนเงินในบัญชี และ สร้าง transaction ลงในบัญชี
 # TODO     return หากการทำรายการเรียบร้อยให้ return success ถ้าไม่เรียบร้อยให้ return error
 # TODO     ต้อง validate การทำงาน เช่น ตัวเลขต้องมากกว่า 0
-
+deposit = lnwza_bank.deposit(all_atm_machine[0], insert_card, 500)
+print("TODO 3", deposit)
+print()
 
 # TODO 4 : เขียน method ที่ทำหน้าที่ถอนเงิน โดยรับ parameter 3 ตัว คือ 1) instance ของเครื่อง atm
 # TODO     2) instance ของ account 3) จำนวนเงิน
