@@ -1,0 +1,59 @@
+classDiagram
+    Bank: - name
+    Bank: - list users
+    Bank: - list atm_machine
+    Bank: + get_user()
+    Bank: + set_user()
+    Bank: + get_atm_machine()
+    Bank: + set_atm_machine()
+
+    User: - citizen_id
+    User: - name
+    User: - list account
+    User: - list atm_card
+    User: + get_name()
+    User: + get_account()
+    User: + add_account()
+    User: + get_atm_card()
+    User: + add_atm_card()
+
+    Account: - account_number
+    Account: - owner
+    Account: - init_balance
+    Account: - atm_card
+    Account: - transaction
+
+    ATMCard: - card_number
+    ATMCard: - account
+    ATMCard: - pin
+    ATMCard: + get_number()
+    ATMCard: + get_account()
+    ATMCard: + get_pin()
+
+    ATMMachine: - machine_id
+    ATMMachine: - initial_balance
+    ATMMachine: + balance
+    ATMMachine: + get_id()
+    ATMMachine: + get_balance()
+    ATMMachine: + set_balance()
+    ATMMachine: + balance()
+    ATMMachine: + balance()
+    ATMMachine: + withdraw()
+    ATMMachine: + transfer()
+
+    Transaction: - type
+    Transaction: - amount
+    Transaction: - after_amount
+    Transaction: - atm
+    Transaction: + get_type()
+    Transaction: + get_amount()
+    Transaction: + get_after_amount()
+    Transaction: + get_atm_id()
+    
+    Bank o-- User
+    Bank o-- ATMMachine
+
+    User --> Account
+    User --> ATMCard
+    Account --> Transaction
+    ATMCard <--> Account
