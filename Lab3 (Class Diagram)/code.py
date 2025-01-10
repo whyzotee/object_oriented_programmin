@@ -49,6 +49,36 @@ class Account:
     def add_transaction(self, transaction):
         self.__transaction.append(transaction)
     
+    def deposit(self, amount, atm_id):
+        self.__amount += amount
+        transaction = Transaction("D", amount, self.__amount, atm_id)
+
+        self.add_transaction(transaction)
+    
+    def withdraw(self, amount, atm_id):
+        if self.__amount < amount:
+            return "Error"
+         
+        self.__amount -= amount
+        transaction = Transaction("W", amount, self.__amount, atm_id)
+
+        self.add_transaction(transaction)
+
+    def transfer(self, amount, transfer_acc, atm_id):
+        if self.__amount < amount:
+            return "Can't transfer amount less your account"
+                
+        self.__amount -= amount
+        transfer_acc.balance += amount
+
+        transaction = Transaction("TW", amount, self.__amount, atm_id)
+        self.add_transaction(transaction)
+
+        transfer_transaction = Transaction("TD", amount, transfer_acc.balance, atm_id)
+        transfer_acc.add_transaction(transfer_transaction)
+
+        return "Success"
+
     balance = property(get_amount, set_amount)
 
 class ATMCard:
@@ -98,9 +128,8 @@ class ATMMachine:
             return "Error"
         
         self.__balance += amount
-        account.balance += amount
 
-        account.add_transaction(Transaction("D", amount, account.balance, self.__id))
+        account.deposit(amount, self.__id)
 
         return "Success"
 
@@ -114,13 +143,12 @@ class ATMMachine:
         if amount > ATMMachine.max_withdraw:
             return "Exceeds daily withdrawal limit of 40,000 baht"
         
-        if account.balance < amount:
+        res = account.withdraw(amount, self.__id)
+
+        if res != None:
             return "Error"
         
         self.__balance -= amount
-        account.balance -= amount
-
-        account.add_transaction(Transaction("W", amount, account.balance, self.__id))
 
         return "Success"
 
@@ -128,16 +156,9 @@ class ATMMachine:
         if amount <= 0:
             return "Error"
         
-        if account.balance < amount:
-            return "Can't transfer amount less your account"
+        res = account.transfer(amount, trans_acc, self.__id)
         
-        account.balance -= amount
-        trans_acc.balance += amount
-        
-        account.add_transaction(Transaction("TW", amount, account.balance , self.__id))
-        trans_acc.add_transaction(Transaction("TD", amount, trans_acc.balance, self.__id))
-        
-        return "Success"
+        return res
     
     balance = property(get_amount, set_amount)
 

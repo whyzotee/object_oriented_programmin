@@ -18,10 +18,13 @@ classDiagram
     User: + add_atm_card()
 
     Account: - account_number
-    Account: - owner
+    %% Account: - owner
     Account: - init_balance
     Account: - atm_card
     Account: - transaction
+    Account: + deposit()
+    Account: + withdraw()
+    Account: + transfer()
 
     ATMCard: - card_number
     ATMCard: - account
@@ -36,8 +39,7 @@ classDiagram
     ATMMachine: + get_id()
     ATMMachine: + get_balance()
     ATMMachine: + set_balance()
-    ATMMachine: + balance()
-    ATMMachine: + balance()
+    ATMMachine: + deposit()
     ATMMachine: + withdraw()
     ATMMachine: + transfer()
 
