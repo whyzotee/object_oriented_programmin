@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 
 class User:
     def __init__(self, citizen_id: str, name: str):
@@ -91,7 +92,7 @@ class Account:
     
     def withdraw(self, atm_id, amount):
         if self.__balance < amount:
-            return "Error"
+            return "Error : not enough money"
          
         self.__balance -= amount
         transaction = Transaction("W", amount, self.__balance, atm_id)
@@ -119,17 +120,13 @@ class SavingAccount(Account):
     def __init__(self, account_number, owner, init_balance=0):
         super().__init__(account_number, owner, init_balance)
 
-    @property
-    def balance(self):
-        return self.get_balance
-    
     def add_card(self, card):
         self.set_atm_card(card)
 
     def calculate_interest(self, duration):
-        interest = self.balance * 0.005
+        interest = self.get_balance * 0.005
         self.set_balance += interest
-
+        
         self.add_transaction(Transaction("I", interest, self.set_balance))
         return interest
 
@@ -137,7 +134,33 @@ class FixedAccount(Account):
     def __init__(self, account_number, owner, month, init_balance=0):
         super().__init__(account_number, owner, init_balance)
         self.__duration_month = month
+
+    def withdraw(self, place, amount):
+        if len(self.get_all_transaction) == 0:
+            return "Error: No initial deposit"
+        return super().withdraw(place, amount)
+
+    @property
+    def get_duration_date(self):
+        return self.__duration_month
     
+    @get_duration_date.setter
+    def deposit_date(self, date:datetime):
+
+        duration = (datetime.now() - date).days
+
+        interest = self.get_balance * 0.025
+
+        if duration == 180:
+            interest = self.get_balance * 0.0125
+        
+        if duration < 180:
+            interest = 0
+           
+        self.set_balance += interest
+        
+        self.add_transaction(Transaction("I", interest, self.set_balance))
+        
 class CurrentAccount(Account):
     pass
 
@@ -201,11 +224,14 @@ class DebitCard(ATMCard):
     def __init__(self, card_number, account, pin):
         super().__init__(card_number, account, pin)
 
-class ShoppingDebitCard(ATMCard):
+    def pay(self):
+        return "Sucess"
+
+class ShoppingDebitCard(DebitCard):
     def __init__(self, card_number, account_number, pin):
         super().__init__(card_number, account_number, pin)
 
-class TravelDebitCard(ATMCard):
+class TravelDebitCard(DebitCard):
     pass
 
 class TransactionChannel:
@@ -330,16 +356,30 @@ class EDCMachine(TransactionChannel):
     @property
     def merchant_account(self):
         return self.__merchant_account
+    
+    @property
+    def get_current_card(self):
+        return self.__current_card
         
     def swipe_card(self, card, pin):
         """รูดบัตรและตรวจสอบ PIN"""
         if isinstance(card, DebitCard) and card.verify_card(pin):
             self.__current_card = card
             return "Success"
+        
         return "Error: Invalid card or PIN"
         
     def pay(self, debit_card, amount):
-        pass
+        if not isinstance(debit_card, DebitCard):
+            return "Error"
+        
+        debit_card.get_account
+
+    def calculate_cashback(self, shopping_card, amount):
+        if isinstance(shopping_card, DebitCard):
+            if amount > 1000:
+                return amount * 0.001
+        return "Error"
 
 class Bank:
     def __init__(self):
@@ -350,7 +390,7 @@ class Bank:
     @property
     def get_users(self):
         return self.__user_list
-
+    
     def find_account_from_number(self, card_number):
         for user in self.__user_list:
             for account in user.get_account:
@@ -360,11 +400,18 @@ class Bank:
         return None
     
     @property
-    def get_atm_machine(self, id) -> None | ATMMachine:
+    def get_atm_machine(self, id) -> ATMMachine | None:
         for machine in self.__atm_machine:
             if machine.get_id == id:
                 return machine
             
+        return None
+    
+    def get_edc_machine(self, id) -> EDCMachine | None:
+        for machine in self.__edc_list:
+            if machine.edc_no == id:
+                return machine
+        
         return None
 
     def add_user(self, user) -> str:
@@ -461,7 +508,7 @@ class BankingTest(unittest.TestCase):
     ###########################################################################################################
 
     def test_deposit(self): # 1. ทดสอบการฝากเงินปกติ 
-        initial_balance = self.tony_savings.balance
+        initial_balance = self.tony_savings.get_balance
 
         deposit_amount = 5000
         result = self.atm1.insert_card(self.tony_atm_card, "1234")
@@ -475,7 +522,7 @@ class BankingTest(unittest.TestCase):
         
         # Verify new balance
         expected_balance = initial_balance + deposit_amount
-        self.assertEqual(self.tony_savings.balance, expected_balance, 
+        self.assertEqual(self.tony_savings.get_balance, expected_balance, 
                         f"Balance should be {expected_balance}")
     
         # Verify transaction history
@@ -486,7 +533,7 @@ class BankingTest(unittest.TestCase):
 
     def test_negative_deposit(self): # 2. ทดสอบการฝากเงินที่มีค่าติดลบ
         # Initial balance check
-        initial_balance = self.tony_savings.balance
+        initial_balance = self.tony_savings.get_balance
         
         # Try to deposit negative amount
         deposit_amount = -5000
@@ -501,7 +548,7 @@ class BankingTest(unittest.TestCase):
                         "Negative deposit should be rejected")
         
         # Verify balance remains unchanged
-        self.assertEqual(self.tony_savings.balance, initial_balance,
+        self.assertEqual(self.tony_savings.get_balance, initial_balance,
                         "Balance should remain unchanged after failed deposit")
         
         # Verify no transaction was recorded
@@ -512,7 +559,7 @@ class BankingTest(unittest.TestCase):
 
     def test_withdraw_over_limit(self): # 3. ทดสอบการถอนเงินเกินจำนวนที่กำหนด
         # Initial balance check
-        initial_balance = self.steve_savings.balance
+        initial_balance = self.steve_savings.get_balance
         
         # Attempt withdrawal
         withdraw_amount = 60000  # Over 50,000 limit
@@ -527,13 +574,13 @@ class BankingTest(unittest.TestCase):
                      "Should return error for withdrawal over limit")
         
         # Verify balance unchanged
-        self.assertEqual(self.steve_savings.balance, initial_balance, 
+        self.assertEqual(self.steve_savings.get_balance, initial_balance, 
                         "Balance should remain unchanged after failed withdrawal")
 
     def test_calculate_interest(self): # 4. ทดสอบการคำนวณดอกเบี้ยบัญชีออมทรัพย์
             """Test interest calculation"""
             # Initial balance check
-            initial_balance = self.thor_savings.balance
+            initial_balance = self.thor_savings.get_balance
             
             # Calculate interest
             interest = self.thor_savings.calculate_interest(1)  # 1 year
@@ -545,12 +592,11 @@ class BankingTest(unittest.TestCase):
             
             # Verify new balance
             expected_balance = initial_balance + expected_interest
-            self.assertEqual(self.thor_savings.balance, expected_balance, 
+            self.assertEqual(self.thor_savings.get_balance, expected_balance, 
                             "Balance should include interest")
             
             # Verify transaction history
             transactions = self.thor_savings.get_all_transaction
-            print("transactionsaasdasdsad",transactions)
             self.assertGreater(len(transactions), 0, "Transaction history should not be empty")
             latest_transaction = transactions[-1]
             self.assertIn("I-", str(latest_transaction), 
@@ -559,7 +605,7 @@ class BankingTest(unittest.TestCase):
     def test_counter_deposit(self): # 5. ทดสอบการฝากเงินผ่านเคาน์เตอร์
         """Test deposit through bank counter"""
         # Initial balance check
-        initial_balance = self.tony_savings.balance
+        initial_balance = self.tony_savings.get_balance
         
         # Deposit parameters
         deposit_amount = 5000
@@ -572,7 +618,7 @@ class BankingTest(unittest.TestCase):
         
         # Verify new balance
         expected_balance = initial_balance + deposit_amount
-        self.assertEqual(self.tony_savings.balance, expected_balance,
+        self.assertEqual(self.tony_savings.get_balance, expected_balance,
                         f"Balance should be {expected_balance}")
         
         # Verify transaction history
@@ -585,7 +631,7 @@ class BankingTest(unittest.TestCase):
     def test_counter_deposit_wrong_citizen_id(self): # 6. ทดสอบการฝากเงินผ่านเคาน์เตอร์โดยใส่เลขบัตรประชาชนผิด
         """Test deposit through bank counter with wrong citizen ID"""
         # Initial balance check
-        initial_balance = self.tony_savings.balance
+        initial_balance = self.tony_savings.get_balance
         
         # Deposit parameters with wrong citizen ID
         deposit_amount = 5000
@@ -598,7 +644,7 @@ class BankingTest(unittest.TestCase):
                         "Deposit with wrong citizen ID should be rejected")
         
         # Verify balance remains unchanged
-        self.assertEqual(self.tony_savings.balance, initial_balance,
+        self.assertEqual(self.tony_savings.get_balance, initial_balance,
                         "Balance should remain unchanged after failed deposit")
         
         # Verify no transaction was recorded
@@ -643,7 +689,7 @@ class BankingTest(unittest.TestCase):
         
         # Simulate time passing (6 months)
         # Mock the deposit_date to be 6 months ago
-        fixed_account._FixedAccount__deposit_date = datetime.now() - timedelta(days=180)
+        fixed_account.deposit_date = datetime.now() - timedelta(days=180)
         
         # Try to withdraw
         withdraw_amount = 50000
@@ -665,196 +711,196 @@ class BankingTest(unittest.TestCase):
         self.assertAlmostEqual(actual_interest, expected_interest, delta=1, 
                             msg="Interest should be calculated at reduced rate")
 
-    # def test_fixed_withdraw_without_deposit(self): # 9. ทดสอบการถอนเงินโดยไม่มีการฝากเงินเริ่มต้น
-    #     """Test withdrawal attempt without initial deposit"""
-    #     # Create new fixed account without deposit
-    #     fixed_account = FixedAccount("FIX004", self.tony, 12)
+    def test_fixed_withdraw_without_deposit(self): # 9. ทดสอบการถอนเงินโดยไม่มีการฝากเงินเริ่มต้น
+        """Test withdrawal attempt without initial deposit"""
+        # Create new fixed account without deposit
+        fixed_account = FixedAccount("FIX004", self.tony, 12)
         
-    #     # Try to withdraw
-    #     withdraw_amount = 1000
-    #     result = fixed_account.withdraw("COUNTER:001", withdraw_amount)
+        # Try to withdraw
+        withdraw_amount = 1000
+        result = fixed_account.withdraw("COUNTER:001", withdraw_amount)
         
-    #     # Verify withdrawal is rejected
-    #     self.assertEqual(result, "Error: No initial deposit", 
-    #                     "Withdrawal without initial deposit should be rejected")
+        # Verify withdrawal is rejected
+        self.assertEqual(result, "Error: No initial deposit", 
+                        "Withdrawal without initial deposit should be rejected")
         
-    #     # Verify no transactions recorded
-    #     transactions = fixed_account.list_transaction()
-    #     self.assertEqual(len(transactions), 0, 
-    #                     "No transactions should be recorded")
+        # Verify no transactions recorded
+        transactions = fixed_account.get_all_transaction
+        self.assertEqual(len(transactions), 0, 
+                        "No transactions should be recorded")
 
-    # def test_fixed_multiple_deposits(self): # 10. ทดสอบการฝากเงินหลายครั้งในบัญชีเงินฝาก
-    #     """Test multiple deposits to fixed account"""
-    #     # Create new fixed account
-    #     fixed_account = FixedAccount("FIX005", self.tony, 12)
+    def test_fixed_multiple_deposits(self): # 10. ทดสอบการฝากเงินหลายครั้งในบัญชีเงินฝาก
+        """Test multiple deposits to fixed account"""
+        # Create new fixed account
+        fixed_account = FixedAccount("FIX005", self.tony, 12)
         
-    #     # First deposit
-    #     first_deposit = 100000
-    #     result1 = fixed_account.deposit("COUNTER:001", first_deposit)
-    #     self.assertEqual(result1, "Success", "First deposit should be successful")
+        # First deposit
+        first_deposit = 100000
+        result1 = fixed_account.deposit("COUNTER:001", first_deposit)
+        self.assertEqual(result1, "Success", "First deposit should be successful")
         
-    #     # Try second deposit
-    #     second_deposit = 50000
-    #     result2 = fixed_account.deposit("COUNTER:001", second_deposit)
-    #     self.assertEqual(result2, "Success", "Second deposit should be successful")
+        # Try second deposit
+        second_deposit = 50000
+        result2 = fixed_account.deposit("COUNTER:001", second_deposit)
+        self.assertEqual(result2, "Success", "Second deposit should be successful")
         
-    #     # Verify final balance includes both deposits
-    #     expected_balance = first_deposit + second_deposit
-    #     self.assertEqual(fixed_account.balance, expected_balance,
-    #                     f"Balance should be {expected_balance}")
+        # Verify final balance includes both deposits
+        expected_balance = first_deposit + second_deposit
+        self.assertEqual(fixed_account.get_balance, expected_balance,
+                        f"Balance should be {expected_balance}")
         
-    #     # Verify both transactions recorded
-    #     transactions = fixed_account.list_transaction()
-    #     self.assertEqual(len(transactions), 2,
-    #                     "Should have two deposit transactions")
+        # Verify both transactions recorded
+        transactions = fixed_account.get_all_transaction
+        self.assertEqual(len(transactions), 2,
+                        "Should have two deposit transactions")
 
-    # def test_fixed_withdraw_at_maturity(self): # 11. ทดสอบการถอนเงินในวันครบกำหนด
-    #     """Test withdrawal at maturity period with full interest"""
-    #     from datetime import datetime, timedelta
+    def test_fixed_withdraw_at_maturity(self): # 11. ทดสอบการถอนเงินในวันครบกำหนด
+        """Test withdrawal at maturity period with full interest"""
+        from datetime import datetime, timedelta
         
-    #     # Initial deposit
-    #     initial_deposit = 100000
-    #     fixed_account = FixedAccount("FIX006", self.tony, 12)  # 12 months period
-    #     fixed_account.deposit("COUNTER:001", initial_deposit)
+        # Initial deposit
+        initial_deposit = 100000
+        fixed_account = FixedAccount("FIX006", self.tony, 12)  # 12 months period
+        fixed_account.deposit("COUNTER:001", initial_deposit)
         
-    #     # Simulate time passing (12 months)
-    #     # Mock the deposit_date to be 12 months ago
-    #     fixed_account._FixedAccount__deposit_date = datetime.now() - timedelta(days=365)
+        # Simulate time passing (12 months)
+        # Mock the deposit_date to be 12 months ago
+        fixed_account.deposit_date = datetime.now() - timedelta(days=365)
         
-    #     # Try to withdraw
-    #     withdraw_amount = initial_deposit
-    #     result = fixed_account.withdraw("COUNTER:001", withdraw_amount)
+        # Try to withdraw
+        withdraw_amount = initial_deposit
+        result = fixed_account.withdraw("COUNTER:001", withdraw_amount)
         
-    #     # Verify withdrawal success
-    #     self.assertEqual(result, "Success", "Withdrawal should be successful")
+        # Verify withdrawal success
+        self.assertEqual(result, "Success", "Withdrawal should be successful")
         
-    #     # Check if full interest was applied
-    #     transactions = fixed_account.list_transaction()
-    #     interest_transaction = [t for t in transactions if str(t).startswith("I-")]
-    #     self.assertGreater(len(interest_transaction), 0, 
-    #                     "Interest transaction should exist")
+        # Check if full interest was applied
+        transactions = fixed_account.get_all_transaction
+        interest_transaction = [t for t in transactions if str(t).startswith("I-")]
+        self.assertGreater(len(interest_transaction), 0, 
+                        "Interest transaction should exist")
         
-    #     # Verify full interest rate (2.5% for 12 months)
-    #     expected_interest = initial_deposit * 0.025  # Full 2.5% annual rate
-    #     actual_interest = float(str(interest_transaction[-1]).split("-")[2])
-    #     self.assertAlmostEqual(actual_interest, expected_interest, delta=1, 
-    #                         msg="Interest should be calculated at full rate")
+        # Verify full interest rate (2.5% for 12 months)
+        expected_interest = initial_deposit * 0.025  # Full 2.5% annual rate
+        actual_interest = float(str(interest_transaction[-1]).split("-")[2])
+        self.assertAlmostEqual(actual_interest, expected_interest, delta=1, 
+                            msg="Interest should be calculated at full rate")
         
-    #     # Verify final balance after interest and withdrawal
-    #     expected_final_balance = initial_deposit + expected_interest - withdraw_amount
-    #     self.assertAlmostEqual(fixed_account.balance, expected_final_balance, delta=1,
-    #                         msg="Final balance should reflect interest and withdrawal")
+        # Verify final balance after interest and withdrawal
+        expected_final_balance = initial_deposit + expected_interest - withdraw_amount
+        self.assertAlmostEqual(fixed_account.get_balance, expected_final_balance, delta=1,
+                            msg="Final balance should reflect interest and withdrawal")
 
-    # def test_current_account_basic_deposit(self): # 12. ทดสอบการฝากเงินในบัญชีกระแสรายวัน
-    #     """Test basic deposit functionality for current account"""
-    #     # Initial setup
-    #     initial_balance = self.thanos_current.balance
-    #     deposit_amount = 50000
+    def test_current_account_basic_deposit(self): # 12. ทดสอบการฝากเงินในบัญชีกระแสรายวัน
+        """Test basic deposit functionality for current account"""
+        # Initial setup
+        initial_balance = self.thanos_current.get_balance
+        deposit_amount = 50000
         
-    #     # Perform deposit via counter
-    #     result = self.counter.deposit(
-    #         self.thanos_current, 
-    #         deposit_amount,
-    #         self.thanos_current.account_no,
-    #         self.thanos.citizen_id
-    #     )
+        # Perform deposit via counter
+        result = self.counter.deposit(
+            self.thanos_current, 
+            deposit_amount,
+            self.thanos_current.get_number,
+            self.thanos.citizen_id
+        )
         
-    #     # Verify deposit success
-    #     self.assertEqual(result, "Success", "Deposit should be successful")
+        # Verify deposit success
+        self.assertEqual(result, "Success", "Deposit should be successful")
         
-    #     # Check balance update
-    #     expected_balance = initial_balance + deposit_amount
-    #     self.assertEqual(self.thanos_current.balance, expected_balance,
-    #                     f"Balance should be {expected_balance}")
+        # Check balance update
+        expected_balance = initial_balance + deposit_amount
+        self.assertEqual(self.thanos_current.get_balance, expected_balance,
+                        f"Balance should be {expected_balance}")
         
-    #     # Verify transaction record
-    #     transactions = self.thanos_current.list_transaction()
-    #     latest_transaction = transactions[-1]
-    #     self.assertIn("D-COUNTER:", str(latest_transaction),
-    #                 "Transaction should be recorded as counter deposit")
+        # Verify transaction record
+        transactions = self.thanos_current.get_all_transaction
+        latest_transaction = transactions[-1]
+        self.assertIn("D-COUNTER:", str(latest_transaction),
+                    "Transaction should be recorded as counter deposit")
 
-    # def test_current_account_large_withdrawal(self): # 13. ทดสอบการถอนเงินในจำนวนมากในบัญชีกระแสรายวัน
-    #     """Test large withdrawal from current account (no limit unlike savings)"""
-    #     # Initial setup
-    #     initial_balance = self.thanos_current.balance
-    #     large_withdrawal = 100000  # Amount larger than savings account limit
+    def test_current_account_large_withdrawal(self): # 13. ทดสอบการถอนเงินในจำนวนมากในบัญชีกระแสรายวัน
+        """Test large withdrawal from current account (no limit unlike savings)"""
+        # Initial setup
+        initial_balance = self.thanos_current.get_balance
+        large_withdrawal = 100000  # Amount larger than savings account limit
         
-    #     # Perform withdrawal via counter
-    #     result = self.counter.withdraw(
-    #         self.thanos_current,
-    #         large_withdrawal,
-    #         self.thanos_current.account_no,
-    #         self.thanos.citizen_id
-    #     )
+        # Perform withdrawal via counter
+        result = self.counter.withdraw(
+            self.thanos_current,
+            large_withdrawal,
+            self.thanos_current.get_number,
+            self.thanos.citizen_id
+        )
         
-    #     # Verify withdrawal success
-    #     self.assertEqual(result, "Success", 
-    #                     "Large withdrawal should be successful for current account")
+        # Verify withdrawal success
+        self.assertEqual(result, "Success", 
+                        "Large withdrawal should be successful for current account")
         
-    #     # Check balance update
-    #     expected_balance = initial_balance - large_withdrawal
-    #     self.assertEqual(self.thanos_current.balance, expected_balance,
-    #                     f"Balance should be {expected_balance}")
+        # Check balance update
+        expected_balance = initial_balance - large_withdrawal
+        self.assertEqual(self.thanos_current.get_balance, expected_balance,
+                        f"Balance should be {expected_balance}")
         
-    #     # Verify transaction record
-    #     transactions = self.thanos_current.list_transaction()
-    #     latest_transaction = transactions[-1]
-    #     self.assertIn("W-COUNTER:", str(latest_transaction),
-    #                 "Transaction should be recorded as counter withdrawal")
+        # Verify transaction record
+        transactions = self.thanos_current.get_all_transaction
+        latest_transaction = transactions[-1]
+        self.assertIn("W-COUNTER:", str(latest_transaction),
+                    "Transaction should be recorded as counter withdrawal")
 
-    # def test_current_account_overdraft_attempt(self): # 14. ทดสอบการถอนเงินเกินจำนวนเงินในบัญชี
-    #     """Test withdrawal attempt exceeding balance"""
-    #     # Try to withdraw more than available balance
-    #     current_balance = self.thanos_current.balance
-    #     excessive_amount = current_balance + 10000
+    def test_current_account_overdraft_attempt(self): # 14. ทดสอบการถอนเงินเกินจำนวนเงินในบัญชี
+        """Test withdrawal attempt exceeding balance"""
+        # Try to withdraw more than available balance
+        current_balance = self.thanos_current.get_balance
+        excessive_amount = current_balance + 10000
         
-    #     # Perform withdrawal
-    #     result = self.counter.withdraw(
-    #         self.thanos_current,
-    #         excessive_amount,
-    #         self.thanos_current.account_no,
-    #         self.thanos.citizen_id
-    #     )
+        # Perform withdrawal
+        result = self.counter.withdraw(
+            self.thanos_current,
+            excessive_amount,
+            self.thanos_current.get_number,
+            self.thanos.citizen_id
+        )
         
-    #     # Verify withdrawal rejection
-    #     self.assertEqual(result, "Error : not enough money",
-    #                     "Overdraft should not be allowed")
+        # Verify withdrawal rejection
+        self.assertEqual(result, "Error : not enough money",
+                        "Overdraft should not be allowed")
         
-    #     # Verify balance unchanged
-    #     self.assertEqual(self.thanos_current.balance, current_balance,
-    #                     "Balance should remain unchanged after failed withdrawal")
+        # Verify balance unchanged
+        self.assertEqual(self.thanos_current.get_balance, current_balance,
+                        "Balance should remain unchanged after failed withdrawal")
 
-    # def test_current_account_merchant_payment(self): # 15. ทดสอบการชำระเงินผ่านบัญชีกระแสรายวันผ่าน EDC
-    #     """Test merchant payment processing through EDC"""
-    #     # Get EDC machine
-    #     edc = self.bank.search_edc_machine("EDC001")
-    #     self.assertIsNotNone(edc, "EDC machine should exist")
+    def test_current_account_merchant_payment(self): # 15. ทดสอบการชำระเงินผ่านบัญชีกระแสรายวันผ่าน EDC
+        """Test merchant payment processing through EDC"""
+        # Get EDC machine
+        edc = self.lnwza_bank.get_edc_machine("EDC001")
+        self.assertIsNotNone(edc, "EDC machine should exist")
         
-    #     # Initial balances
-    #     merchant_initial = self.thanos_current.balance
-    #     customer_initial = self.steve_savings.balance
-    #     payment_amount = 1000
+        # Initial balances
+        merchant_initial = self.thanos_current.get_balance
+        customer_initial = self.steve_savings.get_balance
+        payment_amount = 1000
         
-    #     # Process payment
-    #     # First verify card
-    #     card_verification = edc.swipe_card(self.steve_shopping_card, "5678")
-    #     self.assertEqual(card_verification, "Success", "Card verification should succeed")
+        # Process payment
+        # First verify card
+        card_verification = edc.swipe_card(self.steve_shopping_card, "5678")
+        self.assertEqual(card_verification, "Success", "Card verification should succeed")
         
-    #     # Then make payment
-    #     payment_result = edc.pay(self.steve_shopping_card, payment_amount)
+        # Then make payment
+        payment_result = edc.pay(self.steve_shopping_card, payment_amount)
         
-    #     # Verify payment success
-    #     self.assertEqual(payment_result, "Success", "Payment should be successful")
+        # Verify payment success
+        self.assertEqual(payment_result, "Success", "Payment should be successful")
         
-    #     # Check merchant account balance
-    #     expected_merchant_balance = merchant_initial + payment_amount
-    #     self.assertEqual(self.thanos_current.balance, expected_merchant_balance,
-    #                     "Merchant balance should increase by payment amount")
+        # Check merchant account balance
+        expected_merchant_balance = merchant_initial + payment_amount
+        self.assertEqual(self.thanos_current.get_balance, expected_merchant_balance,
+                        "Merchant balance should increase by payment amount")
         
-    #     # Check customer account balance
-    #     expected_customer_balance = customer_initial - payment_amount + edc.calculate_cashback(self.steve_shopping_card, payment_amount)
-    #     self.assertEqual(self.steve_savings.balance, expected_customer_balance,
-    #                     "Customer balance should decrease by payment amount")
+        # Check customer account balance
+        expected_customer_balance = customer_initial - payment_amount + edc.calculate_cashback(self.steve_shopping_card, payment_amount)
+        self.assertEqual(self.steve_savings.get_balance, expected_customer_balance,
+                        "Customer balance should decrease by payment amount")
 
     # def test_debit_card_annual_fee(self): # 16. ทดสอบการหักค่าธรรมเนียมประจำปีสำหรับบัตร debit
     #     """Test annual fee deduction for cards"""
