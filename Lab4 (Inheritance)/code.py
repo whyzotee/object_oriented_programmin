@@ -122,6 +122,16 @@ class Account:
         self.add_transaction(transaction)
 
         return "Success"
+    
+    def deduct_annual_fee(self):
+        if self.__card != None:
+            fee = self.__card.annual_fee
+            self.__balance -= fee
+
+            transaction = Transaction("F", fee, self.__balance, "SYSTEM")
+            self.add_transaction(transaction)
+
+        return "Success"
 
 class SavingAccount(Account):
     def __init__(self, account_number, owner, init_balance=0):
@@ -169,7 +179,8 @@ class FixedAccount(Account):
         self.add_transaction(Transaction("I", interest, self.set_balance))
         
 class CurrentAccount(Account):
-    pass
+    def __init__(self, account_number, owner, init_balance=0):
+        super().__init__(account_number, owner, init_balance)
 
 class Transaction:
     def __init__(self, type, amount, after_amount, machine=None):
@@ -186,10 +197,6 @@ class Transaction:
     def get_amount(self):
         return self.__amount
 
-    # @property
-    # def get_after_amount(self):
-    #     return self.__after_amount
-    
     @property
     def get_atm_id(self):
         return self.__atm
@@ -234,20 +241,22 @@ class Card:
 class DebitCard(Card):
     def __init__(self, card_number, account, pin):
         super().__init__(card_number, account, pin)
-
-    def pay(self):
-        return "Sucess"
-    
+        
     @property
     def annual_fee(self):
         return 300
 
 class ShoppingDebitCard(DebitCard):
+    cash_back_cost = 1000
+
     def __init__(self, card_number, account_number, pin):
         super().__init__(card_number, account_number, pin)
 
 class TravelDebitCard(DebitCard):
-    pass
+    insurance_limit = 300000
+
+    def __init__(self, card_number, account_number, pin):
+        super().__init__(card_number, account_number, pin)
 
 class TransactionChannel:
     def __init__(self, channel_id, bank):
@@ -261,7 +270,7 @@ class TransactionChannel:
     @property
     def bank(self):
         return self.__bank
-    
+
 class ATMMachine(TransactionChannel):
     max_withdraw = 50000
 
@@ -278,6 +287,10 @@ class ATMMachine(TransactionChannel):
     @property
     def get_balance(self):
         return self.__balance
+    
+    @property
+    def get_current_card(self):
+        return self.__current_card
     
     def insert_card(self, card, pin) -> Account | str:
         if isinstance(card, (Card, DebitCard)) and card.verify_card(pin):
@@ -394,7 +407,7 @@ class EDCMachine(TransactionChannel):
         return res
 
     def calculate_cashback(self, shopping_card, amount):
-        if amount <= 1000 or not isinstance(shopping_card, ShoppingDebitCard):
+        if amount <= ShoppingDebitCard.cash_back_cost or not isinstance(shopping_card, ShoppingDebitCard):
             return 0
         
         return amount * 0.001
@@ -409,15 +422,6 @@ class Bank:
     def get_users(self):
         return self.__user_list
     
-    def find_account_from_number(self, card_number):
-        for user in self.__user_list:
-            for account in user.get_account:
-                if account.get_card.get_number == card_number:
-                    return account
-                
-        return None
-    
-    @property
     def get_atm_machine(self, id) -> ATMMachine | None:
         for machine in self.__atm_machine:
             if machine.get_id == id:
@@ -430,6 +434,14 @@ class Bank:
             if machine.edc_no == id:
                 return machine
         
+        return None
+    
+    def find_account_from_number(self, card_number):
+        for user in self.__user_list:
+            for account in user.get_account:
+                if account.get_card.get_number == card_number:
+                    return account
+                
         return None
 
     def add_user(self, user) -> str:
@@ -789,7 +801,6 @@ class BankingTest(unittest.TestCase):
         
         # Check if full interest was applied
         transactions = fixed_account.get_all_transaction
-        print("transactionstransactionstransactionstransactionstransactions", [t.get_amount for t in transactions if str(t).startswith("I-")])
         interest_transaction = [t for t in transactions if str(t).startswith("I-")]
         self.assertGreater(len(interest_transaction), 0, 
                         "Interest transaction should exist")
@@ -1039,6 +1050,5 @@ class BankingTest(unittest.TestCase):
         self.assertEqual(self.tony_savings.get_balance, tony_initial,
                         "Tony's balance should remain unchanged")
     
-
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,126 @@
+classDiagram
+    Bank: - list users
+    Bank: - list atm_machine
+    Bank: - list edc_list
+    Bank: + get_user()
+    Bank: + get_atm_machine()
+    Bank: + get_edc_machine()
+    Bank: + find_account_from_number()
+    Bank: + add_user()
+    Bank: + add_atm_machine()
+    Bank: + add_edc_machine()
+
+    User: - citizen_id
+    User: - name
+    User: - list account
+    %% User: - list atm_card
+    User: + citizen_id()
+    User: + get_name()
+    User: + get_account()
+    User: + add_account()
+    %% User: + add_atm_card()
+
+    Account: - account_number
+    Account: - owner
+    Account: - init_balance
+    Account: - atm_card
+    Account: - transaction
+    Account: + get_number()
+    Account: + get_user()
+    Account: + get_card()
+    Account: + get_balance()
+    Account: + get_all_transaction()
+    Account: + set_balance()
+    Account: + set_atm_card()
+    Account: + add_transaction()
+    Account: + deposit()
+    Account: + withdraw()
+    Account: + transfer()
+    Account: + pay()
+    Account: + deduct_annual_fee()
+
+    SavingAccount: + add_card()
+    SavingAccount: + calculate_interest()
+
+    FixedAccount: + withdraw()
+    FixedAccount: + get_duration_date()
+    FixedAccount: + deposit_date()
+
+    Card: - card_number
+    Card: - account
+    Card: - pin
+    Card: + get_number()
+    Card: + get_account_number()
+    Card: + get_pin()
+    Card: + annual_fee()
+    Card: + validate_pin()
+    Card: + verify_card()
+
+    DebitCard: + pay()
+    DebitCard: + annual_fee()
+
+    ShoppingDebitCard: + cash_back_cost
+
+    TravelDebitCard: + insurance_limit
+
+    Transaction: - type
+    Transaction: - amount
+    Transaction: - after_amount
+    Transaction: - atm
+    Transaction: - str__()
+    Transaction: + get_type()
+    Transaction: + get_amount()
+    Transaction: + get_atm_id()
+
+    TransactionChannel: - channel_id
+    TransactionChannel: - bank
+    TransactionChannel: + channel_id()
+    TransactionChannel: + bank()
+
+    ATMMachine: - machine_id
+    ATMMachine: - initial_balance
+    ATMMachine: - current_card
+    ATMMachine: + max_withdraw
+    ATMMachine: + get_id()
+    ATMMachine: + get_balance()
+    ATMMachine: + get_current_card()
+    ATMMachine: + insert_card()
+    ATMMachine: + deposit()
+    ATMMachine: + withdraw()
+    ATMMachine: + transfer()
+
+    Counter: - branch_no
+    Counter: + branch_no()
+    Counter: + verify_identity()
+    Counter: + deposit()
+    Counter: + withdraw()
+    Counter: + transfer()
+
+    EDCMachine: - edc_no
+    EDCMachine: - merchant_account
+    EDCMachine: - current_card
+    EDCMachine: + edc_no()
+    EDCMachine: + merchant_account()
+    EDCMachine: + get_current_card()
+    EDCMachine: + swipe_card()
+    EDCMachine: + pay()
+    EDCMachine: + calculate_cashback()
+    
+    Bank o-- User
+    Bank o-- ATMMachine
+
+    User --> Account
+
+    Account --> Transaction
+    SavingAccount --|> Account 
+    FixedAccount --|> Account 
+    CurrentAccount --|> Account 
+
+    Card <--> Account
+    DebitCard --|> Card
+    ShoppingDebitCard --|> DebitCard
+    TravelDebitCard --|> DebitCard
+
+    ATMMachine --|> TransactionChannel
+    Counter --|> TransactionChannel
+    EDCMachine --|> TransactionChannel
