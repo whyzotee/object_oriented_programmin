@@ -232,7 +232,6 @@ class Airlinewa:
                 return flight
 
     def create_booking(self, user_instance: User, flight_instance: Flight, list_pssenger: list[Passenger], list_service: list[Service] | None) -> Booking:
-        print("create_booking().....................................",flight_instance)
         booking_instance = Booking("booking_test_001", user_instance, flight_instance, list_pssenger, list_service)
         self.__booking_list.append(booking_instance)
         return booking_instance
@@ -269,7 +268,7 @@ def main():
 
     # Test
     res = airline.api_book(airline.get_test_user.get_id, "flight_001", [])
-    print("Api res", res)
+    print("Api response: ", res, "dollar")
     print("Get Test Booking Detail....")
 
     for i in airline.get_booking_list:
